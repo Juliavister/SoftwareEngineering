@@ -1,17 +1,11 @@
-import pyodbc
+
 import requests
 from bs4 import BeautifulSoup
 import datetime
-
+import db
 
 # Set up connection to Azure SQL Database
-server = 'dogaserver.database.windows.net'
-database = 'Currency'
-username = 'username'
-password = 'password'
-driver= '{ODBC Driver 17 for SQL Server}'
-cnxn = pyodbc.connect(f'DRIVER={driver};SERVER={server};PORT=1433;DATABASE={database};UID={username};PWD={password}')
-cursor = cnxn.cursor()
+# in the db.py file
 
 # Parse the website and extract exchange rates
 url = 'https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html'
@@ -39,12 +33,30 @@ for row in exchangerate_table.find_all("tr"):
 # Insert data into the database
 date_obj = datetime.datetime.strptime(date_string, '%d %B %Y')
 formatted_date = date_obj.strftime('%Y-%m-%d')
+
+table_names = {
+    'US dollar': 'USD',
+    'Norwegian krone': 'NOK',
+    'Turkish lira': 'TL',
+    'Polish zloty': 'PLN',
+}
 for curr_name, rate in currencies.items():
-    if curr_name != 'date':
-        sql = f"INSERT INTO CurrencyRates (CurrencyName, Rate, RateDate) VALUES ('{curr_name}', {rate}, '{formatted_date}')"
-        cursor.execute(sql)
-cnxn.commit()
+    if curr_name != 'date' and curr_name in table_names:
+        table_name = table_names[curr_name]
+        sql = f"""MERGE INTO {table_name} AS t
+                  USING (VALUES ('{formatted_date}', {rate})) AS s(theDate, Rate)
+                  ON t.theDate = s.theDate
+                  WHEN MATCHED THEN
+                    UPDATE SET t.Rate = s.Rate
+                  WHEN NOT MATCHED THEN
+                    INSERT (theDate, Rate) VALUES (s.theDate, s.Rate);"""
+        db.cursor.execute(sql)
+
+
+db.cnxn.commit()
+
+
 
 # Close the database connection
-cursor.close()
-cnxn.close()
+db.cursor.close()
+db.cnxn.close()
