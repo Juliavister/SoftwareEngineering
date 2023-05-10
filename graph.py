@@ -30,23 +30,25 @@ def send_currency_exchange_graph(bot_token, chat_id):
         data[currency]['rates'].append(rate)
         data[currency]['dates'].append(date)
 
-    # Specify the currency to graph
-    currency = 'USD'
+    currencies = ['USD', 'TRY', 'NOK']
 
-    # Extract the rates and dates for the specified currency
-    rates = data[currency]['rates']
-    dates = data[currency]['dates']
+    # Create a subplot for each currency
+    num_plots = len(currencies)
+    fig, axes = plt.subplots(num_plots, 1, figsize=(12, 6*num_plots), sharex=True)
 
-    # Convert the dates from strings to datetime objects and format them to 'MM-DD'
-    dates = [datetime.strptime(str(d), '%Y-%m-%d').strftime('%m-%d') for d in dates]
+    # Plot the exchange rates for each currency
+    for i, currency in enumerate(currencies):
+        rates = data[currency]['rates']
+        dates = data[currency]['dates']
+        axes[i].plot(dates, rates, linewidth=2.0)
+        axes[i].set_title(f'{currency} Exchange Rate')
+        axes[i].set_ylabel('Exchange Rate')
 
-    # Create a line graph of currency rates over time
-    plt.plot(dates, rates)
+    # Set the x-axis label
+    axes[-1].set_xlabel('Date')
 
-    # Set the title and axis labels
-    plt.title(f'{currency} Exchange Rate')
-    plt.xlabel('Date')
-    plt.ylabel('Exchange Rate')
+    # Show the graph
+    plt.show()
 
     # Save the graph to a bytes buffer
     buf = io.BytesIO()
